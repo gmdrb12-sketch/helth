@@ -10,6 +10,7 @@ test("세트별 다른 중량과 실제 휴식은 저장 후 새로고침해도 
     .filter({ hasText: "벤치프레스" })
     .first()
     .click();
+  await page.getByRole("button", { name: "1 운동 추가", exact: true }).click();
   await page
     .getByRole("spinbutton", { name: "벤치프레스 1세트 중량" })
     .fill("20");
@@ -61,6 +62,7 @@ test("세트 추가·삭제와 진행 중 타이머 새로고침 복원", async 
     .filter({ hasText: "벤치프레스" })
     .first()
     .click();
+  await page.getByRole("button", { name: "1 운동 추가", exact: true }).click();
   await page.getByRole("button", { name: "세트 추가", exact: true }).click();
   await expect(page.locator(".set-line")).toHaveCount(4);
   expect(
@@ -200,4 +202,89 @@ test("AI 잘못된 요청은 거부한다", async ({ request }) => {
     data: { key: "invalid", message: "test" },
   });
   expect(result.status()).toBe(400);
+});
+
+test("운동 라이브러리 다중 선택·부위/기구 필터·즐겨찾기·종목 전환", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.locator(".sync-banner")).toContainText("게스트");
+  await page.getByRole("button", { name: "운동 시작", exact: true }).click();
+  await page
+    .locator(".body-filter")
+    .getByRole("button", { name: "등", exact: true })
+    .click();
+  await page
+    .locator(".gear-filter")
+    .getByRole("button", { name: "케이블", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "케이블 시티드 로우 선택", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "벤치프레스 선택", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "케이블 시티드 로우 즐겨찾기", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "케이블 시티드 로우 선택", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "V-bar 랫풀다운 선택", exact: true })
+    .click();
+  await page.getByRole("button", { name: "2 운동 추가", exact: true }).click();
+  await expect(page.locator(".exercise-sheet:visible h2")).toHaveText(
+    "케이블 시티드 로우",
+  );
+  await page
+    .locator(".exercise-switcher")
+    .getByRole("button", { name: /V-bar 랫풀다운/ })
+    .click();
+  await expect(page.locator(".exercise-sheet:visible h2")).toHaveText(
+    "V-bar 랫풀다운",
+  );
+  expect(
+    await page
+      .locator(".training-overlay")
+      .evaluate((e) => e.scrollWidth <= innerWidth),
+  ).toBe(true);
+  await page.getByRole("button", { name: "종목 추가", exact: true }).click();
+  await page
+    .locator(".library-tabs")
+    .getByRole("button", { name: "좋아하는", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "케이블 시티드 로우 선택", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "V-bar 랫풀다운 선택", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("커스텀 운동을 생성하여 선택하고 세트별 체감강도를 펼친다", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".sync-banner")).toContainText("게스트");
+  await page.getByRole("button", { name: "운동 시작", exact: true }).click();
+  await page
+    .getByRole("button", { name: "커스텀 운동 만들기", exact: true })
+    .click();
+  await page.locator(".custom-builder input").fill("나의 케이블 로우");
+  await page
+    .getByRole("button", { name: "만들고 선택하기", exact: true })
+    .click();
+  await page.getByRole("button", { name: "1 운동 추가", exact: true }).click();
+  await expect(page.locator(".exercise-sheet:visible h2")).toHaveText(
+    "나의 케이블 로우",
+  );
+  await expect(
+    page.getByRole("spinbutton", { name: "나의 케이블 로우 1세트 RPE" }),
+  ).toBeHidden();
+  await page.getByRole("button", { name: /체감 강도 RPE/ }).click();
+  await expect(
+    page.getByRole("spinbutton", { name: "나의 케이블 로우 1세트 RPE" }),
+  ).toBeVisible();
 });

@@ -14,6 +14,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import ExercisePicker from "./exercise-picker";
+import ExerciseIllustration from "./exercise-illustration";
 import { duration, type Workout, workoutSets } from "../lib/records";
 import {
   addExercise,
@@ -52,7 +54,9 @@ export default function WorkoutEditor({
     [category, setCategory] = useState("전체"),
     [now, setNow] = useState(Date.now()),
     [error, setError] = useState(""),
-    [restGoal, setRestGoal] = useState(90);
+    [restGoal, setRestGoal] = useState(90),
+    [focusedId, setFocusedId] = useState<string | null>(null),
+    [showEffort, setShowEffort] = useState(false);
   const loaded = useRef(false),
     storage = draftKey(userId);
   useEffect(() => {
@@ -107,6 +111,8 @@ export default function WorkoutEditor({
     (n, e) => n + e.sets.filter((s) => s.completed).length,
     0,
   );
+  const focusedExercise =
+    draft.exercises.find((e) => e.id === focusedId) || draft.exercises[0];
   const planned = draft.exercises.reduce((n, e) => n + e.sets.length, 0);
   const pending = nextSet(draft),
     active = draft.exercises
@@ -124,11 +130,16 @@ export default function WorkoutEditor({
     pending && pending.exercise.id === draft.rest?.fromExerciseId
       ? "세트 사이"
       : "운동 사이";
-  function add(name: string) {
-    const prev = history.filter((w) => w.name === name).at(-1);
-    update((d) => addExercise(d, name, prev));
+  function addMany(names: string[]) {
+    if (!draft) return;
+    const next = names.reduce(
+      (d, name) =>
+        addExercise(d, name, history.filter((w) => w.name === name).at(-1)),
+      draft,
+    );
+    setFocusedId(next.exercises[draft.exercises.length]?.id || null);
+    setDraft(next);
     setPicker(false);
-    setSearch("");
     setError("");
   }
   function finish() {
@@ -250,6 +261,24 @@ export default function WorkoutEditor({
               </button>
             </div>
           )}
+          <div className="exercise-switcher">
+            {draft.exercises.map((e, i) => (
+              <button
+                key={e.id}
+                className={e.id === focusedExercise?.id ? "selected" : ""}
+                onClick={() => setFocusedId(e.id)}
+              >
+                <span>{i + 1}</span>
+                {e.name}
+                <small>
+                  {e.sets.filter((s) => s.completed).length}/{e.sets.length}
+                </small>
+              </button>
+            ))}
+            <button aria-label="종목 추가" onClick={() => setPicker(true)}>
+              <Plus size={19} />
+            </button>
+          </div>
           <div className="training-layout">
             <div className="training-exercises">
               {draft.exercises.length === 0 && (
@@ -272,7 +301,18 @@ export default function WorkoutEditor({
                   .at(-1);
                 const prevSets = previous ? workoutSets(previous) : [];
                 return (
-                  <section className="exercise-sheet" key={exercise.id}>
+                  <section
+                    className="exercise-sheet"
+                    key={exercise.id}
+                    hidden={exercise.id !== focusedExercise?.id}
+                    data-effort={showEffort}
+                  >
+                    <div className="exercise-hero">
+                      <ExerciseIllustration name={exercise.name} />
+                      <span>
+                        {exerciseIndex + 1} / {draft.exercises.length}
+                      </span>
+                    </div>
                     <div className="exercise-sheet-title">
                       <span className="exercise-order">
                         {String(exerciseIndex + 1).padStart(2, "0")}
@@ -311,12 +351,30 @@ export default function WorkoutEditor({
                         <Trash2 size={17} />
                       </button>
                     </div>
+                    <div className="exercise-volume-line">
+                      <span>
+                        볼륨{" "}
+                        <b>
+                          {exercise.sets
+                            .filter((s) => s.completed)
+                            .reduce((sum, s) => sum + s.weight * s.reps, 0)
+                            .toLocaleString()}
+                        </b>{" "}
+                        kg
+                      </span>
+                      <button
+                        className={showEffort ? "selected" : ""}
+                        onClick={() => setShowEffort(!showEffort)}
+                      >
+                        체감 강도 RPE {showEffort ? "접기" : "+ "}
+                      </button>
+                    </div>
                     <div className="set-grid set-grid-head">
                       <span>세트</span>
                       <span className="previous-cell">이전 기록</span>
                       <span>kg</span>
                       <span>회</span>
-                      <span>RPE</span>
+                      <span className="rpe-field">RPE</span>
                       <span>완료</span>
                       <span />
                     </div>
@@ -380,6 +438,7 @@ export default function WorkoutEditor({
                               type="number"
                               inputMode="decimal"
                               onFocus={(e) => e.currentTarget.select()}
+                              className="rpe-field"
                               aria-label={`${exercise.name} ${index + 1}세트 RPE`}
                               min="1"
                               max="10"
@@ -610,12 +669,25 @@ export default function WorkoutEditor({
                       : "세트 완료 → 휴식 측정 → 다음 세트 시작"}
                 </p>
                 <div className="rest-target">
+                  <button
+                    aria-label="휴식 목표 15초 줄이기"
+                    onClick={() => setRestGoal((s) => Math.max(15, s - 15))}
+                  >
+                    −
+                  </button>
+                  <button
+                    aria-label="휴식 목표 15초 늘리기"
+                    onClick={() => setRestGoal((s) => Math.min(600, s + 15))}
+                  >
+                    +
+                  </button>
                   <span>참고 휴식 목표</span>
                   <select
                     aria-label="휴식 목표"
                     value={restGoal}
                     onChange={(e) => setRestGoal(Number(e.target.value))}
                   >
+                    <option value={restGoal}>{restGoal}초</option>
                     <option value="60">1분</option>
                     <option value="90">1분 30초</option>
                     <option value="120">2분</option>
@@ -634,11 +706,12 @@ export default function WorkoutEditor({
                 {draft.rest && pending ? (
                   <button
                     className="primary next-set-button"
-                    onClick={() =>
+                    onClick={() => {
+                      setFocusedId(pending.exercise.id);
                       update((d) =>
                         startSet(d, pending.exercise.id, pending.set.id),
-                      )
-                    }
+                      );
+                    }}
                   >
                     <Play size={17} />
                     {pending.exercise.id === draft.rest?.fromExerciseId
@@ -708,84 +781,12 @@ export default function WorkoutEditor({
         </div>
       </div>
       {picker && (
-        <div className="exercise-picker-backdrop">
-          <section
-            className="exercise-picker"
-            role="dialog"
-            aria-label="운동 선택"
-          >
-            <div className="picker-heading">
-              <div>
-                <span className="tiny-label">ADD EXERCISE</span>
-                <h2>운동 추가</h2>
-              </div>
-              <button
-                className="icon-button"
-                aria-label="운동 선택 닫기"
-                onClick={() => setPicker(false)}
-              >
-                <X size={22} />
-              </button>
-            </div>
-            <div className="exercise-search">
-              <Search size={18} />
-              <input
-                autoFocus
-                aria-label="운동 검색"
-                placeholder="운동 이름 검색"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="exercise-categories">
-              {["전체", "가슴", "등", "하체", "어깨", "팔", "코어"].map((c) => (
-                <button
-                  key={c}
-                  className={category === c ? "selected" : ""}
-                  onClick={() => setCategory(c)}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-            <div className="exercise-options">
-              {exercises
-                .filter(
-                  ([name, group]) =>
-                    (category === "전체" || group === category) &&
-                    name
-                      .replaceAll(" ", "")
-                      .includes(search.replaceAll(" ", "")),
-                )
-                .map(([name, group]) => (
-                  <button key={name} onClick={() => add(name)}>
-                    <span className="exercise-option-icon">
-                      <Dumbbell size={19} />
-                    </span>
-                    <span>
-                      <b>{name}</b>
-                      <small>
-                        {group}
-                        {history.some((w) => w.name === name)
-                          ? " · 이전 기록 불러오기"
-                          : ""}
-                      </small>
-                    </span>
-                    <Plus size={19} />
-                  </button>
-                ))}
-            </div>
-            {search.trim() &&
-              !exercises.some(([name]) => name === search.trim()) && (
-                <button
-                  className="custom-exercise"
-                  onClick={() => add(search.trim())}
-                >
-                  <Plus size={17} /> ‘{search.trim()}’ 직접 추가
-                </button>
-              )}
-          </section>
-        </div>
+        <ExercisePicker
+          history={history}
+          storageId={userId || "guest"}
+          onAdd={addMany}
+          onClose={() => setPicker(false)}
+        />
       )}
     </div>
   );

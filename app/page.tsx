@@ -208,7 +208,7 @@ export default function Home() {
     setModal("workout");
   };
   return (
-    <div className="app">
+    <div className={tab === "workout" ? "app journal-theme" : "app"}>
       <aside className={mobile ? "sidebar open" : "sidebar"}>
         <a className="brand" onClick={() => navigate("home")}>
           <span className="brand-mark">
@@ -1179,7 +1179,9 @@ export default function Home() {
                         )
                       ) {
                         setData(empty);
-                        try {localStorage.removeItem(draftKey(user?.id));} catch {}
+                        try {
+                          localStorage.removeItem(draftKey(user?.id));
+                        } catch {}
                         setHasDraft(false);
                         setChat([]);
                         setKey("");
