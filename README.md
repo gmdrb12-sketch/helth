@@ -35,3 +35,11 @@ Supabase 설정 전에는 게스트 모드로 동작합니다. 설정과 SQL 적
 `npm run build`, `npm run typecheck`. 설정 없는 게스트 모드의 브라우저 회귀 검증은 `npx playwright install chromium` 후 `npm run test:e2e`로 실행합니다. 이미 설치된 Chromium을 쓸 때 `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e`를 사용할 수 있습니다. 테스트는 로컬 저장, 휴식 타이머, 로그인 미설정 상태, 복원 검증, 모바일 화면, AI 입력 검증을 다룹니다. 실제 외부 로그인·원격 DB 정책 검증을 대체하지 않습니다.
 
 `npm run test:db`는 PGlite의 로컬 PostgreSQL 엔진에서 실제 SQL을 실행해 RLS 계정 분리, 익명 접근 차단, 기록 저장, revision 충돌을 확인합니다. Supabase 원격 프로젝트/메일/OAuth 연결 검증은 별도입니다.
+
+## 운동일지 입력 흐름
+
+첫 화면은 날짜별 운동일지입니다. 운동 시작 → 운동 선택 → 세트별 중량/횟수/RPE 입력 → 해당 세트 완료 → 휴식 측정 → 다음 세트 시작 순서로 기록합니다. 세트/운동을 추가·삭제하고 최근 운동을 불러올 수 있습니다. 완료된 세트만 저장하며, 저장 후 각 세트의 실제 휴식을 표시합니다. 종목을 바꾸면 운동 사이 휴식으로 분류합니다. 마지막 완료부터 저장까지의 시간은 '종료 전 대기'로 구분하며 세트·운동 사이 휴식 합계에 포함하지 않습니다. 기존 일괄 기록의 세트별 휴식은 미측정으로 표시합니다.
+
+진행 중 초안은 계정별 브라우저 키에 임시 저장됩니다. 새로고침 후 '운동 이어하기'로 복원하며 휴식은 실제 시각 차이로 계산합니다. 초안은 다른 기기로 동기화되지 않습니다. 저장한 운동 기록은 기존 Supabase 계정 저장을 이용하며 JSON payload 확장이라 추가 SQL 마이그레이션은 필요하지 않습니다. '세트 시작'을 누르기 전까지는 휴식 중으로 계산되므로 버튼을 누른 시점이 중요합니다.
+
+게스트 회귀 테스트 빌드는 공개 Supabase 설정을 비운 상태로 수행합니다: `NEXT_PUBLIC_SUPABASE_URL='' NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='' NEXT_PUBLIC_SUPABASE_ANON_KEY='' npm run build`. 이후 `npm run test:e2e`를 실행합니다. 실제 연결 버전은 기존 환경 변수를 유지한 `npm run build`로 다시 빌드합니다.
