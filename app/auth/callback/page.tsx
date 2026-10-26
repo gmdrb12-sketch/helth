@@ -1,0 +1,9 @@
+'use client';
+import {useEffect,useRef,useState} from 'react';
+import {getSupabase} from '../../../lib/supabase';
+import {ShieldCheck} from 'lucide-react';
+export default function Callback(){
+ const started=useRef(false);const [error,setError]=useState(''),[recover,setRecover]=useState(false),[password,setPassword]=useState(''),[busy,setBusy]=useState(false);
+ useEffect(()=>{if(started.current)return;started.current=true;async function complete(){const client=getSupabase();if(!client){setError('인증 서비스가 연결되지 않았습니다.');return}const params=new URLSearchParams(location.search);if(params.get('error')){setError('로그인이 취소되었거나 인증에 실패했습니다. 다시 시도해 주세요.');return}const code=params.get('code');if(!code){setError('인증 코드가 없습니다. 메일 또는 로그인 화면에서 다시 시작해 주세요.');return}const {error}=await client.auth.exchangeCodeForSession(code);if(error){setError('인증 링크가 만료되었거나 다른 브라우저에서 열렸습니다. 로그인 화면에서 다시 시도해 주세요.');return}history.replaceState({},'',location.pathname);if(params.get('recovery')==='1')setRecover(true);else location.replace('/');}complete().catch(()=>setError('연결에 실패했습니다. 다시 로그인해 주세요.'))},[]);
+ return <div className="callback-page"><section className="card"><ShieldCheck size={38}/><h1>{recover?'새 비밀번호 설정':error?'인증을 확인해 주세요':'로그인을 완료하고 있어요'}</h1>{error?<><p role="alert">{error}</p><a className="primary" href="/login">로그인으로 돌아가기</a></>:recover?<form onSubmit={async e=>{e.preventDefault();setBusy(true);const client=getSupabase();if(!client)return;const {error}=await client.auth.updateUser({password});if(error){setError('비밀번호를 변경하지 못했습니다. 다시 시도해 주세요.');setBusy(false)}else location.replace('/')}}><label>새 비밀번호<input type="password" autoComplete="new-password" minLength={8} maxLength={128} required value={password} onChange={e=>setPassword(e.target.value)}/></label><button className="primary" disabled={busy}>비밀번호 저장</button></form>:<p>안전하게 계정과 기록을 연결하는 중입니다.</p>}</section></div>
+}
