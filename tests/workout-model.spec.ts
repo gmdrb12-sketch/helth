@@ -118,3 +118,66 @@ test("반복 운동은 이전 중량만 불러오고 완료 여부와 휴식 측
   expect(repeat.exercises[0].sets[0].restAfter).toBeNull();
   expect(repeat.date).toBe("2026-10-28");
 });
+
+test("운동 사진은 실제 종목 ID에 연결되고 커스텀 이름을 임의의 다른 사진에 매핑하지 않는다", async () => {
+  const images = JSON.parse(
+    await (
+      await import("node:fs/promises")
+    ).readFile(process.cwd() + "/lib/exercise-images.json", "utf8"),
+  );
+  expect(images["케이블 시티드 로우"].id).toBe("Seated_Cable_Rows");
+  expect(images["랫풀다운"].id).toBe("Wide-Grip_Lat_Pulldown");
+  expect(images["벤치프레스"].id).toBe("Barbell_Bench_Press_-_Medium_Grip");
+  expect(Object.hasOwn(images, "어시스트 머신 풀업")).toBe(false);
+});
+
+test("게스트 가져오기는 기존 계정의 목표와 같은 ID의 기록을 덮어쓰지 않는다", async () => {
+  const { mergeGuestRecords } = await import("../lib/pending-records");
+  const account = {
+    workouts: [],
+    meals: [
+      {
+        id: "same",
+        date: "2026-10-27",
+        name: "계정 기록",
+        type: "점심",
+        calories: 600,
+        protein: 30,
+      },
+    ],
+    body: [],
+    goal: "내가 정한 기존 목표",
+  };
+  const guest = {
+    ...account,
+    goal: "게스트 목표",
+    meals: [
+      { ...account.meals[0], name: "게스트의 예전 기록" },
+      { ...account.meals[0], id: "new", name: "새 기록" },
+    ],
+  };
+  const merged = mergeGuestRecords(account, guest);
+  expect(merged.meals).toHaveLength(2);
+  expect(merged.meals[0].name).toBe("계정 기록");
+  expect(merged.goal).toBe("내가 정한 기존 목표");
+});
+
+test("과거 게스트 측정값을 가져와도 최근 인바디 기록은 날짜순으로 유지한다", async () => {
+  const { mergeGuestRecords } = await import("../lib/pending-records");
+  const base = { workouts: [], meals: [], goal: "목표" };
+  const result = mergeGuestRecords(
+    {
+      ...base,
+      body: [
+        { id: "latest", date: "2026-10-27", weight: 70, muscle: 30, fat: 20 },
+      ],
+    },
+    {
+      ...base,
+      body: [
+        { id: "old", date: "2026-09-01", weight: 75, muscle: 29, fat: 24 },
+      ],
+    },
+  );
+  expect(result.body.at(-1)?.id).toBe("latest");
+});

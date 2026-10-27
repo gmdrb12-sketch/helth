@@ -288,3 +288,52 @@ test("커스텀 운동을 생성하여 선택하고 세트별 체감강도를 �
     page.getByRole("spinbutton", { name: "나의 케이블 로우 1세트 RPE" }),
   ).toBeVisible();
 });
+
+test("모든 메뉴와 로그인 화면이 공통 다크 테마를 사용하고 운동 사진은 실제 종목별 파일로 표시한다", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".sync-banner")).toContainText("게스트");
+  for (const name of [
+    "건강 요약",
+    "운동 분석",
+    "인바디",
+    "식사 기록",
+    "AI 코치",
+    "마이 · 설정",
+    "운동일지",
+  ]) {
+    await page
+      .locator(".sidebar")
+      .getByRole("button", { name: new RegExp("^"+name) })
+      .click();
+    await expect(page.locator(".app")).toHaveClass(/journal-theme/);
+    expect(
+      await page.evaluate(
+        () => getComputedStyle(document.body).backgroundColor,
+      ),
+    ).toBe("rgb(17, 17, 17)");
+  }
+  await page.getByRole("button", { name: "운동 시작", exact: true }).click();
+  await page
+    .getByRole("button", { name: "벤치프레스 선택", exact: true })
+    .click();
+  await page.getByRole("button", { name: "1 운동 추가", exact: true }).click();
+  const photo = page.locator(".exercise-hero img");
+  await expect(photo).toHaveAttribute(
+    "src",
+    "/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg",
+  );
+  await expect
+    .poll(() => photo.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
+  await page.getByRole("button", { name: "마무리 자세", exact: true }).click();
+  await expect(photo).toHaveAttribute(
+    "src",
+    "/exercises/Barbell_Bench_Press_-_Medium_Grip/1.jpg",
+  );
+  await page.goto("/login");
+  expect(
+    await page.evaluate(() => getComputedStyle(document.body).backgroundColor),
+  ).toBe("rgb(17, 17, 17)");
+});

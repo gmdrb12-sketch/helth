@@ -49,6 +49,7 @@ import AccountPanel from "../components/account-panel";
 import WorkoutEditor from "../components/workout-editor";
 import WorkoutJournal from "../components/workout-journal";
 import { draftKey } from "../lib/workout";
+import { mergeGuestRecords } from "../lib/pending-records";
 const day = () => new Date().toLocaleDateString("en-CA");
 const uid = () => crypto.randomUUID();
 const menu = [
@@ -75,8 +76,17 @@ export default function Home() {
     [workoutInitial, setWorkoutInitial] = useState<
       { records: Workout[]; repeat: boolean } | undefined
     >(undefined);
-  const { data, setData, user, ready, status, syncError, retrySync } =
-    useRecords();
+  const [guest, setGuest] = useState<Data | null>(null);
+  const {
+    data,
+    setData,
+    user,
+    ready,
+    status,
+    syncError,
+    retrySync,
+    replaceWithCloud,
+  } = useRecords();
   useEffect(() => {
     setKey("");
     setChat([]);
@@ -98,6 +108,26 @@ export default function Home() {
       return () => clearTimeout(id);
     }
   }, [toast]);
+  useEffect(() => {
+    if (!user) {
+      setGuest(null);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem("onfit-data");
+      const g = raw ? JSON.parse(raw) : null;
+      setGuest(isData(g) ? g : null);
+    } catch {
+      setGuest(null);
+    }
+  }, [user?.id]);
+  const guestMissing =
+    guest &&
+    user &&
+    ready &&
+    (guest.workouts.some((w) => !data.workouts.some((x) => x.id === w.id)) ||
+      guest.meals.some((w) => !data.meals.some((x) => x.id === w.id)) ||
+      guest.body.some((w) => !data.body.some((x) => x.id === w.id)));
   const notify = (t: string) => setToast(t);
   const navigate = (t: string) => {
     setTab(t);
@@ -208,7 +238,7 @@ export default function Home() {
     setModal("workout");
   };
   return (
-    <div className={tab === "workout" ? "app journal-theme" : "app"}>
+    <div className="app journal-theme">
       <aside className={mobile ? "sidebar open" : "sidebar"}>
         <a className="brand" onClick={() => navigate("home")}>
           <span className="brand-mark">
@@ -303,10 +333,24 @@ export default function Home() {
           </div>
         </header>
         <main>
-          <div className="sync-banner">
+          <div className={"sync-banner " + (syncError ? "error" : "")}>
             <ShieldCheck size={16} />
             <span>{status}</span>
             {syncError && <button onClick={retrySync}>다시 시도</button>}
+            {syncError && user && ready && (
+              <button
+                onClick={() => {
+                  if (
+                    confirm(
+                      "현재 미저장 변경을 포기하고 서버에 저장된 기록으로 바꿀까요? 필요한 기록은 먼저 마이·설정에서 백업하세요.",
+                    )
+                  )
+                    replaceWithCloud();
+                }}
+              >
+                서버 기록 다시 불러오기
+              </button>
+            )}
             {!user && (
               <a href="/login">
                 로그인 · 회원가입 <ArrowRight size={13} />
@@ -328,6 +372,35 @@ export default function Home() {
                   <a href="/login">로그인 화면으로 이동</a>
                 </>
               )}
+            </div>
+          )}
+          {guestMissing && (
+            <div className="guest-import">
+              <div>
+                <b>로그인 전에 남긴 기록이 있어요</b>
+                <p>
+                  이 브라우저의 게스트 기록을 현재 계정으로 가져올 수 있어요.
+                  가져온 후에도 게스트 원본은 이 브라우저에 남습니다.
+                </p>
+              </div>
+              <button
+                className="primary"
+                onClick={() => {
+                  if (
+                    guest &&
+                    confirm(
+                      "게스트 기록을 현재 로그인한 계정에 추가할까요? 같은 ID의 기록은 계정에 있는 내용을 유지합니다.",
+                    )
+                  ) {
+                    setData((d) => mergeGuestRecords(d, guest));
+                    notify(
+                      "기록을 합쳤어요. 상단의 클라우드 저장 완료를 확인해 주세요.",
+                    );
+                  }
+                }}
+              >
+                게스트 기록 가져오기
+              </button>
             </div>
           )}
           <div className="page-heading">
@@ -1126,7 +1199,7 @@ export default function Home() {
                   <p className="settings-description">
                     {user
                       ? "로그인한 계정의 기록은 클라우드에 저장됩니다. 저장 상태를 확인하고 중요한 기록은 별도로 백업하세요."
-                      : "게스트 기록은 이 브라우저에만 저장됩니다. 로그인 후 백업 파일을 복원하면 계정에 옮길 수 있어요."}
+                      : "게스트 기록은 이 브라우저에만 저장됩니다. 로그인 후 가져오기 버튼으로 계정에 옮길 수 있어요."}
                   </p>
                   <button
                     className="outline-button"

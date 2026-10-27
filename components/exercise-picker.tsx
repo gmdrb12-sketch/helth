@@ -14,19 +14,26 @@ import type { Workout } from "../lib/records";
 import ExerciseIllustration from "./exercise-illustration";
 type Item = { name: string; group: string; equipment: string };
 const equipment = (name: string) =>
-  /케이블/.test(name)
-    ? "케이블"
-    : /덤벨/.test(name)
-      ? "덤벨"
-      : /바벨|벤치프레스|스쿼트|데드리프트|오버헤드프레스/.test(name)
-        ? "바벨"
-        : /푸시업|풀업|크런치|행잉/.test(name)
-          ? "맨몸"
-          : "머신";
+  /런지|트라이셉스 익스텐션/.test(name)
+    ? "덤벨"
+    : /케이블/.test(name)
+      ? "케이블"
+      : /덤벨/.test(name)
+        ? "덤벨"
+        : /바벨|벤치프레스|스쿼트|데드리프트|오버헤드프레스/.test(name)
+          ? "바벨"
+          : /푸시업|풀업|크런치|행잉/.test(name)
+            ? "맨몸"
+            : "머신";
 const base: Item[] = [
   ...exercises.map(([name, group]) => ({
     name,
-    group: group === "팔" ? (/트라이셉스|푸시다운/.test(name) ? "삼두" : "이두") : group,
+    group:
+      group === "팔"
+        ? /트라이셉스|푸시다운/.test(name)
+          ? "삼두"
+          : "이두"
+        : group,
     equipment: equipment(name),
   })),
   ...[
